@@ -21,9 +21,9 @@ def generate_response(messages, api_key, provider, temperature):
         return "API key not configured. Please set it in Streamlit secrets."
 
     try:
-        if provider == "Google Gemini 2.0 Flash Thinking":
+        if provider == "Google Gemini Flash 2.0 Experimental":
             genai.configure(api_key=api_key)
-            model = genai.GenerativeModel("gemini-2.0-flash-thinking-exp-01-21")
+            model = genai.GenerativeModel("gemini-2.0-flash-exp")
 
             # Convert message history to text format
             conversation = "\n".join([f"{m['role']}: {m['content']}" for m in messages])
@@ -209,7 +209,7 @@ st.markdown("""Welcome to the Aurora Nexus! A text-based AI RPG.
 # Sidebar for settings
 with st.sidebar:
     st.header("Settings")
-    api_provider = st.selectbox("API Provider", ["Google Gemini Flash", "Deepseek Chat"])  
+    api_provider = st.selectbox("API Provider", ["Google Gemini Flash 2.0 Experimental", "Deepseek Chat"])  
     # API Key Input Removed from Sidebar
 
     if st.button("Start New Game"):
