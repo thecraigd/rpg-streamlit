@@ -203,11 +203,11 @@ st.image(
 
 # Display logo/title
 # st.title("Aurora Nexus RPG") # removed and replaced with header image
-st.markdown("""Welcome to the Aurora Nexus! A text-based AI RPG. 
+st.markdown("""Welcome to the Aurora Nexus! A text-based AI RPG.
 
-    The Aurora Nexus uses modern Large language Model technology to power a fully interactive RPG where you can explore a complete sci-fi environment. Each playthrough is unique, and with a wide array of unique space stations to explore and characters to meet, the possibilites are endless!
+The Aurora Nexus uses modern Large language Model technology to power a fully interactive RPG where you can explore a complete sci-fi environment. Each playthrough is unique, and with a wide array of unique space stations to explore and characters to meet, the possibilites are endless!
 
-    Thanks for your patience while the first part of your adventure is created...""")
+Thanks for your patience while the first part of your adventure is created...""")
 
 # Sidebar for settings
 with st.sidebar:
