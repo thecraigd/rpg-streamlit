@@ -19,14 +19,27 @@ def load_world_data(json_file_path):
 def generate_response(messages, api_key, provider, temperature):
     if not api_key: # Check for API key here to avoid initial message
         return "API key not configured. Please set it in Streamlit secrets."
+
     try:
-        client = OpenAI(api_key=api_key, base_url="https://api.deepseek.com/v1") # Deepseek API base URL
-        response = client.chat.completions.create(
-            model="deepseek-chat",  # Or "deepseek-reasoner", experiment with models
-            messages=messages,
-            temperature=temperature,
-        )
-        return response.choices[0].message.content
+        if provider == "Google Gemini 2.0 Flash Thinking":
+            genai.configure(api_key=api_key)
+            model = genai.GenerativeModel("gemini-2.0-flash-thinking-exp-01-21")
+
+            # Convert message history to text format
+            conversation = "\n".join([f"{m['role']}: {m['content']}" for m in messages])
+            response = model.generate_content(conversation) # Gemini API does not have explicit temperature parameter here.
+
+            return response.text
+
+        elif provider == "Deepseek Chat":
+            client = OpenAI(api_key=api_key, base_url="https://api.deepseek.com/v1")
+            response = client.chat.completions.create(
+                model="deepseek-chat",
+                messages=messages,
+                temperature=temperature, # Use the temperature parameter
+            )
+            return response.choices[0].message.content
+
     except Exception as e:
         return f"Error: {str(e)}"
 
@@ -187,14 +200,17 @@ st.image(
 
 # Display logo/title
 # st.title("Aurora Nexus RPG") # removed and replaced with header image
-st.markdown("Welcome to the Aurora Nexus! A text-based AI RPG. Thanks for your patience while the first part of your adventure is created...")
+st.markdown("""Welcome to the Aurora Nexus! A text-based AI RPG. 
+
+    The Aurora Nexus uses modern Large language Model technology to power a fully interactive RPG where you can explore a complete sci-fi environment. Each playthrough is unique, and with a wide array of unique space stations to explore and characters to meet, the possibilites are endless!
+
+    Thanks for your patience while the first part of your adventure is created...""")
 
 # Sidebar for settings
 with st.sidebar:
     st.header("Settings")
-    api_provider = st.selectbox("API Provider", ["Deepseek Chat"])  # For now, just Deepseek
+    api_provider = st.selectbox("API Provider", ["Google Gemini Flash", "Deepseek Chat"])  
     # API Key Input Removed from Sidebar
-    temperature = st.slider("Temperature", min_value=0.0, max_value=2.0, value=0.7, step=0.1, help="Controls randomness of AI responses.")
 
     if st.button("Start New Game"):
         if 'world_data' in st.session_state:
@@ -205,7 +221,9 @@ with st.sidebar:
     st.session_state.temperature = temperature
 
 # --- API Key from Streamlit Secrets ---
-st.session_state.api_key = st.secrets.get("DEEPSEEK_API_KEY") # Access API key from secrets
+if api_provider = "Deepseek Chat":
+    st.session_state.api_key = st.secrets.get("DEEPSEEK_API_KEY") # Access API key from secrets
+else  st.session_state.api_key = st.secrets.get("GOOGLE_API_KEY") # Access API key from secrets
 
 # Initialize game state if not already in session
 if "world_data" not in st.session_state:
