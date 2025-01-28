@@ -127,6 +127,54 @@ def check_inventory(game_state):
 # --- Streamlit UI ---
 st.set_page_config(page_title="AI RPG Game", layout="wide")
 
+# Inject custom CSS for styling
+st.markdown(
+    """
+    <style>
+    /* Main background */
+    .stApp {
+        background-color: black;
+        color: white;
+    }
+
+    /* Sidebar background */
+    .css-1d391kg {
+        background-color: black;
+        color: white;
+    }
+
+    /* Sidebar text */
+    .css-1v3fvcr {
+        color: white;
+    }
+    
+    /* Input boxes and sliders */
+    .css-1d0tddn, .css-1n76uvr {
+        background-color: #333333; /* Dark gray for input boxes */
+        color: white;
+    }
+
+    /* Chat messages */
+    .stMarkdown > div, .st-chat-message {
+        background-color: #222222;
+        color: white;
+        border: 1px solid #444;
+        border-radius: 10px;
+        padding: 10px;
+        margin-bottom: 10px;
+    }
+
+    /* Adjust input text box */
+    textarea, input {
+        background-color: #333333;
+        color: white;
+    }
+
+    </style>
+    """,
+    unsafe_allow_html=True
+)
+
 # Add a full-width header image
 st.image(
     "https://raw.githubusercontent.com/thecraigd/rpg-streamlit/main/AURORA_NEXUS.png",
@@ -134,7 +182,7 @@ st.image(
 )
 
 # Display logo/title
-st.title("Aurora Nexus RPG")
+# st.title("Aurora Nexus RPG") # removed and replaced with header image
 st.markdown("Welcome to the Aurora Nexus! A text-based AI RPG.")
 
 # Sidebar for settings
