@@ -192,6 +192,8 @@ st.markdown(
     unsafe_allow_html=True
 )
 
+temperature = 0.7
+
 # Add a full-width header image
 st.image(
     "https://raw.githubusercontent.com/thecraigd/rpg-streamlit/main/AURORA_NEXUS.png",
