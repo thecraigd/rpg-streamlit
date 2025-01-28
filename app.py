@@ -187,7 +187,7 @@ st.image(
 
 # Display logo/title
 # st.title("Aurora Nexus RPG") # removed and replaced with header image
-st.markdown("Welcome to the Aurora Nexus! A text-based AI RPG.")
+st.markdown("Welcome to the Aurora Nexus! A text-based AI RPG. Thanks for your patience while the first part of your adventure is created...")
 
 # Sidebar for settings
 with st.sidebar:
