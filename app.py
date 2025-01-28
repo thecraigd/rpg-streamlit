@@ -53,9 +53,9 @@ def start_game(world_data):
         initial_prompt_content += "None visible.\n"
 
     initial_prompt_content += """
-    Describe the player's immediate surroundings in {st.session_state.current_town} and wait for their first command.
+    Give some context of the whole Aurora Nexus with its many stations and abundance of variety. Describe the player's immediate surroundings in {st.session_state.current_town} and wait for their first command. 
     Keep your descriptions evocative and engaging, setting the scene for an immersive role-playing experience.
-    Remember to act as the Dungeon Master and guide the player through the world. Aim to keep your initial description to around 150 words.
+    Remember to act as the Dungeon Master and guide the player through the world. Aim to keep your initial description to around 250 words.
     """
 
     initial_messages = [
