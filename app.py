@@ -109,11 +109,11 @@ def handle_player_input(player_command, game_state):
     Respond as the Dungeon Master. Describe what happens next in the game world based on the player's command, the current location, and the world's lore.
     Be descriptive and engaging. Advance the story based on the player's actions. Aim to keep your response to around 150 words.
     """
-    st.session_state.messages.append({"role": "user", "content": player_command}) # **Ensure user message is added to chat display here**
+    st.session_state.messages.append({"role": "user", "content": player_command}) # Keep this line to display the player's command
     with st.chat_message("user"): # **Explicitly display user message here**
         st.write(player_command)
-    st.session_state.messages.append({"role": "user", "content": prompt_message}) # Provide context in a 'user' message for the DM
-    ai_response = generate_response(st.session_state.messages, st.session_state.api_key, st.session_state.api_provider, st.session_state.temperature)
+    # Remove this line:  st.session_state.messages.append({"role": "user", "content": prompt_message}) # Provide context in a 'user' message for the DM
+    ai_response = generate_response(st.session_state.messages + [{"role": "user", "content": prompt_message}], st.session_state.api_key, st.session_state.api_provider, st.session_state.temperature) # Pass prompt_message as context directly to generate_response
     return ai_response
 
 def add_item_to_inventory(item_name, game_state):
