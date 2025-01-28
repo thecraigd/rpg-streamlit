@@ -223,7 +223,8 @@ with st.sidebar:
 # --- API Key from Streamlit Secrets ---
 if api_provider == "Deepseek Chat":
     st.session_state.api_key = st.secrets.get("DEEPSEEK_API_KEY") # Access API key from secrets
-else  st.session_state.api_key = st.secrets.get("GOOGLE_API_KEY") # Access API key from secrets
+else:
+    st.session_state.api_key = st.secrets.get("GOOGLE_API_KEY") # Access API key from secrets
 
 # Initialize game state if not already in session
 if "world_data" not in st.session_state:
