@@ -50,7 +50,7 @@ def start_game(world_data):
     st.session_state.world_data = world_data
     st.session_state.inventory = {}
     st.session_state.current_station = "New Eden"  # Example starting station
-    st.session_state.current_town = "Verdant Spire"  # Example starting town
+    st.session_state.current_town = "Cygnus Enclave"  # Example starting town
 
     initial_prompt_content = f"""You are the Dungeon Master for a text-based RPG set in the world of {world_data['name']}.
     The world description is: {world_data['description']}.
