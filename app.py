@@ -2,6 +2,7 @@ import streamlit as st
 import json
 import requests
 from openai import OpenAI 
+import google.generativeai as genai
 
 # --- Load World Data ---
 @st.cache_resource  # Cache to load only once
