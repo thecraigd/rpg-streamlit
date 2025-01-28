@@ -130,7 +130,7 @@ st.set_page_config(page_title="AI RPG Game", layout="wide")
 # Add a full-width header image
 st.image(
     "https://raw.githubusercontent.com/thecraigd/rpg-streamlit/main/AURORA_NEXUS.png",
-    use_column_width=True,
+    use_container_width=True,
 )
 
 # Display logo/title
