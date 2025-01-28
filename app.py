@@ -1,12 +1,18 @@
 import streamlit as st
 import json
-from openai import OpenAI  # Assuming openai package works for Deepseek API
+import requests
+from openai import OpenAI 
 
 # --- Load World Data ---
 @st.cache_resource  # Cache to load only once
 def load_world_data(json_file_path):
-    with open(json_file_path, 'r') as f:
-        world_data = json.load(f)
+    if json_file_path.startswith("http"):
+        response = requests.get(json_file_path)
+        response.raise_for_status()  # Ensure request is successful
+        world_data = response.json()  # Parse JSON response
+    else:
+        with open(json_file_path, 'r') as f:
+            world_data = json.load(f)
     return world_data
 
 # --- API Interaction Function (Adapt from your example) ---
@@ -121,6 +127,12 @@ def check_inventory(game_state):
 # --- Streamlit UI ---
 st.set_page_config(page_title="AI RPG Game", layout="wide")
 
+# Add a full-width header image
+st.image(
+    "https://raw.githubusercontent.com/thecraigd/rpg-streamlit/main/AURORA_NEXUS.png",
+    use_column_width=True,
+)
+
 # Display logo/title
 st.title("Aurora Nexus RPG")
 st.markdown("Welcome to the Aurora Nexus! A text-based AI RPG.")
@@ -145,7 +157,7 @@ st.session_state.api_key = st.secrets.get("DEEPSEEK_API_KEY") # Access API key f
 
 # Initialize game state if not already in session
 if "world_data" not in st.session_state:
-    world_data = load_world_data("aurora_nexus_world.json") # Assuming your JSON is saved as "aurora_nexus_world.json"
+    world_data = load_world_data("https://raw.githubusercontent.com/thecraigd/rpg-streamlit/main/aurora_nexus_world.json")
     st.session_state.world_data = world_data
     start_game(world_data)
 
