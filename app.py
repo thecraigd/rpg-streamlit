@@ -55,18 +55,18 @@ def start_game(world_data):
     initial_prompt_content += """
     Describe the player's immediate surroundings in {st.session_state.current_town} and wait for their first command.
     Keep your descriptions evocative and engaging, setting the scene for an immersive role-playing experience.
-    Remember to act as the Dungeon Master and guide the player through the world. Aim to keep your initial description to around 200 words.
+    Remember to act as the Dungeon Master and guide the player through the world. Aim to keep your initial description to around 150 words.
     """
 
     initial_messages = [
-        {"role": "system", "content": "You are a Dungeon Master for a text-based RPG. Use the provided world data to describe locations, NPCs, and events. Be creative and engaging. Keep responses concise, aiming for approximately 200 words."},
+        {"role": "system", "content": "You are a Dungeon Master for a text-based RPG. Use the provided world data to describe locations, NPCs, and events. Be creative and engaging. Keep responses concise, aiming for approximately 150 words."},
         {"role": "user", "content": initial_prompt_content} # Send the initial prompt as a user message to trigger the DM response
     ]
 
     initial_response = generate_response(initial_messages, st.session_state.api_key, st.session_state.api_provider, st.session_state.temperature)
 
     st.session_state.messages = [
-        {"role": "system", "content": "You are a Dungeon Master for a text-based RPG. Use the provided world data to describe locations, NPCs, and events. Be creative and engaging. Keep responses concise, aiming for approximately 200 words."},
+        {"role": "system", "content": "You are a Dungeon Master for a text-based RPG. Use the provided world data to describe locations, NPCs, and events. Be creative and engaging. Keep responses concise, aiming for approximately 150 words."},
         {"role": "assistant", "content": initial_response if initial_response and not initial_response.startswith("API key not configured") else "Welcome to Aurora Nexus!"} # Display the AI's response as the first message, or default welcome if API key issue or no response
     ]
 
@@ -93,7 +93,7 @@ def handle_player_input(player_command, game_state):
     **Your Command:** {player_command}
 
     Respond as the Dungeon Master. Describe what happens next in the game world based on the player's command, the current location, and the world's lore.
-    Be descriptive and engaging. Advance the story based on the player's actions. Aim to keep your response to around 200 words.
+    Be descriptive and engaging. Advance the story based on the player's actions. Aim to keep your response to around 150 words.
     """
     st.session_state.messages.append({"role": "user", "content": player_command}) # **Ensure user message is added to chat display here**
     with st.chat_message("user"): # **Explicitly display user message here**
@@ -125,7 +125,11 @@ def check_inventory(game_state):
 
 
 # --- Streamlit UI ---
-st.set_page_config(page_title="AI RPG Game", layout="wide")
+st.set_page_config(
+    page_title="AI RPG Game",
+    layout="wide",
+    initial_sidebar_state="collapsed"  # Set to "collapsed" to minimize the sidebar
+)
 
 # Inject custom CSS for styling
 st.markdown(
