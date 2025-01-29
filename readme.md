@@ -4,9 +4,11 @@
 [link]: https://www.craigdoesdata.com/
 
 [image]: https://github.com/thecraigd/rpg-streamlit/blob/main/AURORA_NEXUS.png?raw=true
-[link]: https://www.craigdoesdata.com/rpg
+[imglink]: https://www.craigdoesdata.com/rpg
 
 # Aurora Nexus AI RPG - Your Text-Based Adventure
+
+[![Aurora_Nexus][image]][imglink]
 
 [![Streamlit App](https://static.streamlit.io/badges/streamlit_badge_black_white.svg)](https://www.craigdoesdata.com/rpg)
 
@@ -110,4 +112,4 @@ This project is licensed under the MIT License.
 
 ---
 
-**Enjoy your adventure in the Aurora Nexus!**  We hope you have a fantastic time exploring this AI-powered world.
+**Enjoy your adventure in the Aurora Nexus!**  I hope you have a fantastic time exploring this AI-powered world.
