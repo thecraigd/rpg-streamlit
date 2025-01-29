@@ -140,7 +140,7 @@ def check_inventory(game_state):
 
 # --- Streamlit UI ---
 st.set_page_config(
-    page_title="AI RPG Game",
+    page_title="AURORA NEXUS - AI RPG Game",
     layout="wide",
     initial_sidebar_state="collapsed"  # Set to "collapsed" to minimize the sidebar
 )
