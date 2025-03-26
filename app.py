@@ -60,35 +60,12 @@ def generate_image(text_prompt, api_key):
         # Make sure the API is properly configured with the key
         genai.configure(api_key=api_key)
         
-        # Create a much more simplified prompt that focuses on the scenery and setting
-        # Avoid character names, specific people, or any content that might trigger policy filters
-        
-        # Extract key setting elements from the text
-        words = text_prompt.split()
-        key_words = []
-        
-        # Get sci-fi relevant keywords (limited to common nouns and environmental elements)
-        sci_fi_elements = ["space", "station", "ship", "nebula", "star", "planet", "alien", "tech", 
-                          "futuristic", "robot", "android", "hologram", "neon", "city", "colony",
-                          "market", "lab", "dock", "bay", "corridor", "room", "hall", "chamber"]
-        
-        for word in words:
-            word = word.lower().strip(".,!?;:()")
-            if word in sci_fi_elements or "space" in word or "tech" in word or "future" in word:
-                key_words.append(word)
-        
-        # If we couldn't extract enough keywords, use some safe defaults
-        if len(key_words) < 3:
-            key_words = ["futuristic", "space", "station", "sci-fi"]
-        
-        # Limit to just a few key terms
-        key_words = key_words[:5]
-        
-        # Create a very simple, safe prompt
-        image_prompt = f"Generate a colorful science fiction illustration of a {', '.join(key_words)} scene. No text, no people."
+        # Create an extremely generic, abstract prompt with no references to specific content
+        # This is our last attempt to avoid policy violations
+        image_prompt = "Create an abstract futuristic landscape with stars and technology. Completely fictional, no text, no characters."
         
         if st.session_state.get('debug_mode', False):
-            st.sidebar.write(f"Debug: Using simplified prompt: '{image_prompt}'")
+            st.sidebar.write(f"Debug: Using ultra-generic prompt: '{image_prompt}'")
         
         # Use the simplest possible approach
         model = genai.GenerativeModel("gemini-2.0-flash-exp-image-generation")
@@ -102,7 +79,10 @@ def generate_image(text_prompt, api_key):
             if "violates" in response.text.lower() or "policy" in response.text.lower():
                 if st.session_state.get('debug_mode', False):
                     st.sidebar.write(f"Debug: Policy violation: {response.text[:100]}...")
-                return None, "Image generation not available: API policy restriction"
+                
+                # If we're getting policy violations even with the most generic prompt,
+                # the feature may not be available for this API key or account
+                return None, "Image generation not currently available"
             
             # If the response is just text but not an error, we still don't have an image
             if len(response.text) > 100:
@@ -128,7 +108,10 @@ def generate_image(text_prompt, api_key):
         # If we got here, we couldn't extract an image
         if st.session_state.get('debug_mode', False):
             st.sidebar.write("Debug: No image found in the response")
-        return None, "Scene visualization unavailable"
+        
+        # At this point, we should consider the image generation feature unavailable
+        # and recommend disabling it to avoid further policy violations
+        return None, "Scene visualization unavailable (recommend disabling images in settings)"
     
     except Exception as e:
         error_msg = f"Error in image generation: {str(e)}"
@@ -373,8 +356,12 @@ with st.sidebar:
     st.header("Settings")
     api_provider = st.selectbox("API Provider", ["Google Gemini Flash 2.0 Experimental", "Deepseek Chat"])  
     
-    # Image generation toggle
-    enable_images = st.checkbox("Enable Scene Images", value=True)
+    # Image generation toggle with warning
+    st.markdown("**Scene Visualization**")
+    enable_images = st.checkbox("Enable Scene Images", value=False)  # Default to OFF for now
+    
+    if enable_images:
+        st.info("Note: Image generation is experimental and may not be available with all API keys. If you see policy violation messages, try disabling this feature.")
     
     # Add debug mode toggle
     debug_mode = st.checkbox("Debug Mode", value=False)
@@ -388,13 +375,6 @@ with st.sidebar:
     st.session_state.temperature = temperature
     st.session_state.enable_images = enable_images
     st.session_state.debug_mode = debug_mode
-    
-    # Debug information section (only shown when debug mode is enabled)
-    if st.session_state.get('debug_mode', False):
-        st.subheader("Debug Information")
-        st.write("API Provider:", st.session_state.get('api_provider', 'Not set'))
-        st.write("Images Enabled:", st.session_state.get('enable_images', 'Not set'))
-        st.write("API Key Set:", "Yes" if st.session_state.get('api_key') else "No")
 
 # --- API Key from Streamlit Secrets ---
 if api_provider == "Deepseek Chat":
