@@ -3,7 +3,8 @@ import json
 import requests
 from openai import OpenAI 
 import google.generativeai as genai
-from google.generativeai import types
+import google.generativeai.types as genai_types
+from google.generativeai import GenerationConfig
 from PIL import Image
 from io import BytesIO
 import base64
@@ -51,20 +52,26 @@ def generate_response(messages, api_key, provider, temperature):
 # --- NEW: Image Generation Function ---
 def generate_image(text_prompt, api_key):
     if not api_key:
-        return None, "API key not configured. Please set it in Streamlit secrets."
+        st.error("API key not configured. Please set it in Streamlit secrets.")
+        return None, "API key not configured."
     
     try:
-        # Initialize the client
-        client = genai.GenerativeModel("gemini-2.0-flash-exp-image-generation")
+        # Make sure the API is properly configured with the key
+        genai.configure(api_key=api_key)
         
-        # Create the prompt for image generation
-        image_prompt = f"Generate a wide cinematic 5:2 aspect ratio illustration for a sci-fi RPG scene based on the following description: {text_prompt}"
+        # Initialize the client with the image generation model
+        model = genai.GenerativeModel("gemini-2.0-flash-exp-image-generation")
         
-        # Generate the image
-        response = client.generate_content(
+        # Create the prompt for image generation - keep it concise for better results
+        image_prompt = f"Generate a wide cinematic 5:2 aspect ratio illustration for a sci-fi RPG scene: {text_prompt[:300]}"
+        
+        st.sidebar.write(f"Debug: Attempting to generate image with prompt length: {len(image_prompt)}")
+        
+        # Generate the image with explicit configuration
+        response = model.generate_content(
             contents=image_prompt,
-            generation_config=types.GenerateContentConfig(
-                response_modalities=['Text', 'Image']
+            generation_config=GenerationConfig(
+                response_mime_types=['image/png', 'text/plain']
             )
         )
         
@@ -72,16 +79,31 @@ def generate_image(text_prompt, api_key):
         image_data = None
         image_caption = None
         
-        for part in response.candidates[0].content.parts:
-            if part.text is not None:
-                image_caption = part.text
-            elif part.inline_data is not None:
-                image_data = Image.open(BytesIO(base64.b64decode(part.inline_data.data)))
-        
-        return image_data, image_caption
+        try:
+            for part in response.candidates[0].content.parts:
+                if hasattr(part, 'text') and part.text is not None:
+                    image_caption = part.text
+                    st.sidebar.write("Debug: Got image caption")
+                elif hasattr(part, 'inline_data') and part.inline_data is not None:
+                    # Get the base64 data
+                    image_bytes = BytesIO(base64.b64decode(part.inline_data.data))
+                    image_data = Image.open(image_bytes)
+                    st.sidebar.write("Debug: Successfully processed image data")
+            
+            if image_data is None:
+                st.sidebar.write("Debug: No image data found in response")
+                
+            return image_data, image_caption if image_caption else "Generated scene image"
+            
+        except (IndexError, AttributeError) as e:
+            st.sidebar.write(f"Debug: Error extracting data from response: {str(e)}")
+            st.sidebar.write(f"Debug: Response structure: {dir(response)}")
+            return None, f"Error extracting image data: {str(e)}"
     
     except Exception as e:
-        return None, f"Error generating image: {str(e)}"
+        error_msg = f"Error generating image: {str(e)}"
+        st.sidebar.write(f"Debug: {error_msg}")
+        return None, error_msg
 
 # --- Game Logic Functions ---
 def start_game(world_data):
@@ -117,11 +139,30 @@ def start_game(world_data):
 
     initial_response = generate_response(initial_messages, st.session_state.api_key, st.session_state.api_provider, st.session_state.temperature)
 
-    # Generate an image for the initial scene
-    if initial_response and not initial_response.startswith("API key not configured"):
-        image_data, image_caption = generate_image(initial_response, st.session_state.api_key)
-        st.session_state.current_image = image_data
-        st.session_state.current_image_caption = image_caption
+    # Generate an image for the initial scene if images are enabled
+    if st.session_state.get('enable_images', True) and initial_response and not initial_response.startswith("API key not configured"):
+        try:
+            if st.session_state.get('debug_mode', False):
+                st.sidebar.write("Debug: Attempting to generate initial scene image...")
+                
+            image_data, image_caption = generate_image(initial_response, st.session_state.api_key)
+            
+            if image_data:
+                st.session_state.current_image = image_data
+                st.session_state.current_image_caption = image_caption
+                
+                if st.session_state.get('debug_mode', False):
+                    st.sidebar.write("Debug: Initial scene image successfully generated")
+            else:
+                if st.session_state.get('debug_mode', False):
+                    st.sidebar.write(f"Debug: Failed to generate initial image. Reason: {image_caption}")
+                st.session_state.current_image = None
+                st.session_state.current_image_caption = None
+        except Exception as e:
+            if st.session_state.get('debug_mode', False):
+                st.sidebar.write(f"Debug: Exception during initial image generation: {str(e)}")
+            st.session_state.current_image = None
+            st.session_state.current_image_caption = None
     else:
         st.session_state.current_image = None
         st.session_state.current_image_caption = None
@@ -158,13 +199,34 @@ def handle_player_input(player_command, game_state):
     st.session_state.messages.append({"role": "user", "content": player_command}) # Keep this line to display the player's command
     with st.chat_message("user"): # **Explicitly display user message here**
         st.write(player_command)
-    # Remove this line:  st.session_state.messages.append({"role": "user", "content": prompt_message}) # Provide context in a 'user' message for the DM
-    ai_response = generate_response(st.session_state.messages + [{"role": "user", "content": prompt_message}], st.session_state.api_key, st.session_state.api_provider, st.session_state.temperature) # Pass prompt_message as context directly to generate_response
     
-    # Generate image for the new scene
-    image_data, image_caption = generate_image(ai_response, st.session_state.api_key)
-    st.session_state.current_image = image_data
-    st.session_state.current_image_caption = image_caption
+    # Generate the AI response
+    ai_response = generate_response(st.session_state.messages + [{"role": "user", "content": prompt_message}], st.session_state.api_key, st.session_state.api_provider, st.session_state.temperature)
+    
+    # Generate image for the new scene if images are enabled
+    if st.session_state.get('enable_images', True):
+        try:
+            if st.session_state.get('debug_mode', False):
+                st.sidebar.write("Debug: Attempting to generate image...")
+                
+            image_data, image_caption = generate_image(ai_response, st.session_state.api_key)
+            
+            if image_data:
+                st.session_state.current_image = image_data
+                st.session_state.current_image_caption = image_caption
+                
+                if st.session_state.get('debug_mode', False):
+                    st.sidebar.write("Debug: Image successfully generated")
+            else:
+                if st.session_state.get('debug_mode', False):
+                    st.sidebar.write(f"Debug: Failed to generate image. Reason: {image_caption}")
+                st.session_state.current_image = None
+                st.session_state.current_image_caption = None
+        except Exception as e:
+            if st.session_state.get('debug_mode', False):
+                st.sidebar.write(f"Debug: Exception during image generation: {str(e)}")
+            st.session_state.current_image = None
+            st.session_state.current_image_caption = None
     
     return ai_response
 
@@ -283,6 +345,9 @@ with st.sidebar:
     # Image generation toggle
     enable_images = st.checkbox("Enable Scene Images", value=True)
     
+    # Add debug mode toggle
+    debug_mode = st.checkbox("Debug Mode", value=False)
+    
     if st.button("Start New Game"):
         if 'world_data' in st.session_state:
             start_game(st.session_state.world_data)
@@ -291,6 +356,14 @@ with st.sidebar:
     st.session_state.api_provider = api_provider # Update session state with sidebar values
     st.session_state.temperature = temperature
     st.session_state.enable_images = enable_images
+    st.session_state.debug_mode = debug_mode
+    
+    # Debug information section (only shown when debug mode is enabled)
+    if st.session_state.get('debug_mode', False):
+        st.subheader("Debug Information")
+        st.write("API Provider:", st.session_state.get('api_provider', 'Not set'))
+        st.write("Images Enabled:", st.session_state.get('enable_images', 'Not set'))
+        st.write("API Key Set:", "Yes" if st.session_state.get('api_key') else "No")
 
 # --- API Key from Streamlit Secrets ---
 if api_provider == "Deepseek Chat":
@@ -312,8 +385,15 @@ for message in st.session_state.messages:
             st.write(message["content"])
             
             # Display current scene image after assistant messages
-            if message["role"] == "assistant" and hasattr(st.session_state, 'current_image') and st.session_state.current_image and st.session_state.enable_images:
-                st.image(st.session_state.current_image, caption=st.session_state.current_image_caption, use_column_width=True)
+            if message["role"] == "assistant" and 'current_image' in st.session_state and st.session_state.current_image is not None and st.session_state.get('enable_images', True):
+                try:
+                    st.image(st.session_state.current_image, 
+                             caption=st.session_state.get('current_image_caption', 'Scene illustration'), 
+                             use_column_width=True)
+                except Exception as e:
+                    st.error(f"Failed to display image: {str(e)}")
+                    st.sidebar.write(f"Debug: Image display error: {str(e)}")
+                    st.sidebar.write(f"Debug: Image type: {type(st.session_state.current_image)}")
 
 # Chat input
 if prompt := st.chat_input("Enter your command here..."):
@@ -323,8 +403,15 @@ if prompt := st.chat_input("Enter your command here..."):
             st.write(ai_response)
             
             # Display the generated image
-            if hasattr(st.session_state, 'current_image') and st.session_state.current_image and st.session_state.enable_images:
-                st.image(st.session_state.current_image, caption=st.session_state.current_image_caption, use_column_width=True)
+            if 'current_image' in st.session_state and st.session_state.current_image is not None and st.session_state.get('enable_images', True):
+                try:
+                    st.image(st.session_state.current_image, 
+                             caption=st.session_state.get('current_image_caption', 'Scene illustration'), 
+                             use_column_width=True)
+                except Exception as e:
+                    st.error(f"Failed to display image: {str(e)}")
+                    st.sidebar.write(f"Debug: Image display error: {str(e)}")
+                    st.sidebar.write(f"Debug: Image type: {type(st.session_state.current_image)}")
             
             st.session_state.messages.append({"role": "assistant", "content": ai_response})
 
