@@ -3,8 +3,8 @@ import json
 import requests
 from openai import OpenAI 
 import google.generativeai as genai
-import google.generativeai.types as genai_types
-from google.generativeai import GenerationConfig
+# Import GenerationConfig from the correct module
+from google.generativeai.types import GenerationConfig
 from PIL import Image
 from io import BytesIO
 import base64
@@ -68,10 +68,11 @@ def generate_image(text_prompt, api_key):
         st.sidebar.write(f"Debug: Attempting to generate image with prompt length: {len(image_prompt)}")
         
         # Generate the image with explicit configuration
+        # Try with response_modalities as shown in the original example code
         response = model.generate_content(
             contents=image_prompt,
             generation_config=GenerationConfig(
-                response_mime_types=['image/png', 'text/plain']
+                response_modalities=['Image', 'Text']
             )
         )
         
