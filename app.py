@@ -60,46 +60,99 @@ def generate_image(text_prompt, api_key):
         # Make sure the API is properly configured with the key
         genai.configure(api_key=api_key)
         
-        # Create the prompt for image generation - keep it concise for better results
-        image_prompt = f"Generate a wide cinematic 5:2 aspect ratio illustration for a sci-fi RPG scene: {text_prompt[:300]}"
+        # Create a simpler, more direct prompt for image generation
+        image_prompt = f"Generate an image of: {text_prompt[:300]}"
         
         if st.session_state.get('debug_mode', False):
-            st.sidebar.write(f"Debug: Attempting to generate image with prompt length: {len(image_prompt)}")
+            st.sidebar.write(f"Debug: Attempting to generate image with prompt: '{image_prompt}'")
+            st.sidebar.write("Debug: Using model: gemini-2.0-flash-exp-image-generation")
         
-        # Use GenerativeModel without any special configuration
+        # Use the model specifically for image generation
         model = genai.GenerativeModel("gemini-2.0-flash-exp-image-generation")
-        response = model.generate_content(image_prompt)
+        
+        # Add safety settings to ensure the model knows to generate images
+        safety_settings = {
+            genai.types.HarmCategory.HARASSMENT: genai.types.HarmBlockThreshold.BLOCK_MEDIUM_AND_ABOVE,
+            genai.types.HarmCategory.HATE_SPEECH: genai.types.HarmBlockThreshold.BLOCK_MEDIUM_AND_ABOVE,
+            genai.types.HarmCategory.SEXUALLY_EXPLICIT: genai.types.HarmBlockThreshold.BLOCK_MEDIUM_AND_ABOVE,
+            genai.types.HarmCategory.DANGEROUS_CONTENT: genai.types.HarmBlockThreshold.BLOCK_MEDIUM_AND_ABOVE,
+        }
+        
+        # Try with a more explicit configuration
+        try:
+            # First attempt with generation_config explicitly set for image
+            generation_config = genai.types.GenerationConfig(
+                temperature=0.4,
+                top_p=1.0,
+                top_k=32,
+                candidate_count=1,
+            )
+            
+            response = model.generate_content(
+                image_prompt,
+                generation_config=generation_config,
+                safety_settings=safety_settings,
+            )
+            
+            if st.session_state.get('debug_mode', False):
+                st.sidebar.write("Debug: Response received from primary attempt")
+        except Exception as e:
+            if st.session_state.get('debug_mode', False):
+                st.sidebar.write(f"Debug: Primary attempt failed: {str(e)}. Trying fallback method.")
+            
+            # Fallback to simpler approach
+            response = model.generate_content(image_prompt)
+            
+            if st.session_state.get('debug_mode', False):
+                st.sidebar.write("Debug: Response received from fallback attempt")
         
         # Extract image data and text response
         image_data = None
         image_caption = None
         
+        if st.session_state.get('debug_mode', False):
+            st.sidebar.write(f"Debug: Examining response structure...")
+            st.sidebar.write(f"Debug: Response type: {type(response)}")
+            if hasattr(response, 'candidates') and len(response.candidates) > 0:
+                st.sidebar.write(f"Debug: Has candidates. Checking parts...")
+                if hasattr(response.candidates[0], 'content') and hasattr(response.candidates[0].content, 'parts'):
+                    parts = response.candidates[0].content.parts
+                    st.sidebar.write(f"Debug: Found {len(parts)} parts in response")
+                    for i, part in enumerate(parts):
+                        st.sidebar.write(f"Debug: Part {i} type: {type(part)}")
+                        st.sidebar.write(f"Debug: Part {i} attributes: {dir(part)[:10]}...")
+        
         try:
-            if st.session_state.get('debug_mode', False):
-                st.sidebar.write(f"Debug: Response received. Extracting data...")
-                
             for part in response.candidates[0].content.parts:
                 if hasattr(part, 'text') and part.text is not None:
                     image_caption = part.text
                     if st.session_state.get('debug_mode', False):
-                        st.sidebar.write("Debug: Got image caption")
+                        st.sidebar.write(f"Debug: Found text part: {image_caption[:50]}...")
                 elif hasattr(part, 'inline_data') and part.inline_data is not None:
+                    if st.session_state.get('debug_mode', False):
+                        st.sidebar.write(f"Debug: Found inline_data with mime type: {part.inline_data.mime_type}")
                     # Get the base64 data
                     image_bytes = BytesIO(base64.b64decode(part.inline_data.data))
                     image_data = Image.open(image_bytes)
                     if st.session_state.get('debug_mode', False):
                         st.sidebar.write("Debug: Successfully processed image data")
             
-            if image_data is None and st.session_state.get('debug_mode', False):
-                st.sidebar.write("Debug: No image data found in response")
-                
+            if image_data is None:
+                if st.session_state.get('debug_mode', False):
+                    st.sidebar.write("Debug: No image data found in response")
+                # If we have text but no image, it's likely the model returned text instructions
+                # rather than an actual image
+                if image_caption and len(image_caption) > 100:
+                    # This is likely a description rather than a caption
+                    if st.session_state.get('debug_mode', False):
+                        st.sidebar.write("Debug: Model returned text description instead of image")
+                    return None, "Model returned a text description instead of an image"
+            
             return image_data, image_caption if image_caption else "Generated scene image"
             
         except (IndexError, AttributeError) as e:
             if st.session_state.get('debug_mode', False):
                 st.sidebar.write(f"Debug: Error extracting data from response: {str(e)}")
-                if hasattr(response, 'candidates') and hasattr(response.candidates[0], 'content'):
-                    st.sidebar.write(f"Debug: Response parts types: {[type(part) for part in response.candidates[0].content.parts]}")
             return None, f"Error extracting image data: {str(e)}"
     
     except Exception as e:
