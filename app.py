@@ -52,7 +52,8 @@ def generate_response(messages, api_key, provider, temperature):
 # --- NEW: Image Generation Function ---
 def generate_image(text_prompt, api_key):
     if not api_key:
-        st.error("API key not configured. Please set it in Streamlit secrets.")
+        if st.session_state.get('debug_mode', False):
+            st.sidebar.write("Debug: API key not configured")
         return None, "API key not configured."
     
     try:
@@ -65,15 +66,9 @@ def generate_image(text_prompt, api_key):
         if st.session_state.get('debug_mode', False):
             st.sidebar.write(f"Debug: Attempting to generate image with prompt length: {len(image_prompt)}")
         
-        # Use the exact same pattern as the example code provided
-        client = genai.Client()
-        response = client.models.generate_content(
-            model="gemini-2.0-flash-exp-image-generation",
-            contents=image_prompt,
-            config=genai.types.GenerateContentConfig(
-                response_modalities=['Text', 'Image']
-            )
-        )
+        # Use GenerativeModel without any special configuration
+        model = genai.GenerativeModel("gemini-2.0-flash-exp-image-generation")
+        response = model.generate_content(image_prompt)
         
         # Extract image data and text response
         image_data = None
@@ -103,7 +98,8 @@ def generate_image(text_prompt, api_key):
         except (IndexError, AttributeError) as e:
             if st.session_state.get('debug_mode', False):
                 st.sidebar.write(f"Debug: Error extracting data from response: {str(e)}")
-                st.sidebar.write(f"Debug: Response structure: {dir(response)}")
+                if hasattr(response, 'candidates') and hasattr(response.candidates[0], 'content'):
+                    st.sidebar.write(f"Debug: Response parts types: {[type(part) for part in response.candidates[0].content.parts]}")
             return None, f"Error extracting image data: {str(e)}"
     
     except Exception as e:
