@@ -60,85 +60,78 @@ def generate_image(text_prompt, api_key):
         # Make sure the API is properly configured with the key
         genai.configure(api_key=api_key)
         
-        # Create a simpler, more direct prompt for image generation
-        image_prompt = f"Generate an image of a sci-fi scene showing: {text_prompt[:300]}"
+        # Create a much more simplified prompt that focuses on the scenery and setting
+        # Avoid character names, specific people, or any content that might trigger policy filters
+        
+        # Extract key setting elements from the text
+        words = text_prompt.split()
+        key_words = []
+        
+        # Get sci-fi relevant keywords (limited to common nouns and environmental elements)
+        sci_fi_elements = ["space", "station", "ship", "nebula", "star", "planet", "alien", "tech", 
+                          "futuristic", "robot", "android", "hologram", "neon", "city", "colony",
+                          "market", "lab", "dock", "bay", "corridor", "room", "hall", "chamber"]
+        
+        for word in words:
+            word = word.lower().strip(".,!?;:()")
+            if word in sci_fi_elements or "space" in word or "tech" in word or "future" in word:
+                key_words.append(word)
+        
+        # If we couldn't extract enough keywords, use some safe defaults
+        if len(key_words) < 3:
+            key_words = ["futuristic", "space", "station", "sci-fi"]
+        
+        # Limit to just a few key terms
+        key_words = key_words[:5]
+        
+        # Create a very simple, safe prompt
+        image_prompt = f"Generate a colorful science fiction illustration of a {', '.join(key_words)} scene. No text, no people."
         
         if st.session_state.get('debug_mode', False):
-            st.sidebar.write(f"Debug: Attempting to generate image with prompt: '{image_prompt}'")
-            st.sidebar.write("Debug: Using model: gemini-2.0-flash-exp-image-generation")
+            st.sidebar.write(f"Debug: Using simplified prompt: '{image_prompt}'")
         
-        # Use the model specifically for image generation - keep it simple
+        # Use the simplest possible approach
         model = genai.GenerativeModel("gemini-2.0-flash-exp-image-generation")
-        
-        # Try the simplest approach possible
         response = model.generate_content(image_prompt)
         
         if st.session_state.get('debug_mode', False):
             st.sidebar.write("Debug: Response received")
-            st.sidebar.write(f"Debug: Response type: {type(response)}")
-            
-            # Let's inspect what properties the response object has
-            if hasattr(response, 'text'):
-                st.sidebar.write(f"Debug: Response has 'text' attribute of length: {len(response.text)}")
-                st.sidebar.write(f"Debug: First 100 chars: {response.text[:100]}")
-                
-                # If the response is just text, we don't have an image
-                if len(response.text) > 100:
-                    return None, "Model returned text instead of an image"
-                
-            # Check if candidates exist
-            if hasattr(response, 'candidates'):
-                st.sidebar.write(f"Debug: Response has 'candidates' attribute with {len(response.candidates)} items")
-                
-                # Dive into the first candidate if available
-                if len(response.candidates) > 0:
-                    candidate = response.candidates[0]
-                    st.sidebar.write(f"Debug: Candidate has attributes: {dir(candidate)[:10]}...")
-                    
-                    # Check content
-                    if hasattr(candidate, 'content'):
-                        st.sidebar.write(f"Debug: Content has attributes: {dir(candidate.content)[:10]}...")
-                        
-                        # Check parts
-                        if hasattr(candidate.content, 'parts'):
-                            st.sidebar.write(f"Debug: Found {len(candidate.content.parts)} parts")
-                            
-                            # Examine each part
-                            for i, part in enumerate(candidate.content.parts):
-                                st.sidebar.write(f"Debug: Part {i} type: {type(part)}")
-                                st.sidebar.write(f"Debug: Part {i} has attributes: {dir(part)[:10]}...")
-                                
-                                # Check for text
-                                if hasattr(part, 'text') and part.text is not None:
-                                    st.sidebar.write(f"Debug: Part {i} has text of length: {len(part.text)}")
-                                    st.sidebar.write(f"Debug: First 50 chars: {part.text[:50]}...")
-                                
-                                # Check for inline_data
-                                if hasattr(part, 'inline_data') and part.inline_data is not None:
-                                    st.sidebar.write(f"Debug: Part {i} has inline_data")
-                                    
-                                    # Check mime type
-                                    if hasattr(part.inline_data, 'mime_type'):
-                                        st.sidebar.write(f"Debug: Inline data mime type: {part.inline_data.mime_type}")
-                                    
-                                    # Check data
-                                    if hasattr(part.inline_data, 'data'):
-                                        st.sidebar.write(f"Debug: Has data attribute of type: {type(part.inline_data.data)}")
-                                        
-                                        # Try to process it
-                                        try:
-                                            image_bytes = BytesIO(base64.b64decode(part.inline_data.data))
-                                            image = Image.open(image_bytes)
-                                            st.sidebar.write(f"Debug: Successfully parsed image: {image.format} {image.size}")
-                                            return image, "Generated scene image"
-                                        except Exception as img_e:
-                                            st.sidebar.write(f"Debug: Failed to process inline data as image: {str(img_e)}")
         
-        # If we got here, we couldn't find an image in the response
-        return None, "Could not extract image from response"
+        # Check if we got an error or policy violation
+        if hasattr(response, 'text') and response.text:
+            if "violates" in response.text.lower() or "policy" in response.text.lower():
+                if st.session_state.get('debug_mode', False):
+                    st.sidebar.write(f"Debug: Policy violation: {response.text[:100]}...")
+                return None, "Image generation not available: API policy restriction"
             
+            # If the response is just text but not an error, we still don't have an image
+            if len(response.text) > 100:
+                if st.session_state.get('debug_mode', False):
+                    st.sidebar.write(f"Debug: Got text response instead of image: {response.text[:100]}...")
+                return None, "Image generation returned text instead of an image"
+        
+        # Try to extract image data if present
+        if hasattr(response, 'candidates') and response.candidates:
+            for part in response.candidates[0].content.parts:
+                # Check for inline_data (image)
+                if hasattr(part, 'inline_data') and part.inline_data is not None:
+                    try:
+                        image_bytes = BytesIO(base64.b64decode(part.inline_data.data))
+                        image = Image.open(image_bytes)
+                        if st.session_state.get('debug_mode', False):
+                            st.sidebar.write(f"Debug: Successfully parsed image: {image.format} {image.size}")
+                        return image, "Generated scene image"
+                    except Exception as img_e:
+                        if st.session_state.get('debug_mode', False):
+                            st.sidebar.write(f"Debug: Failed to process image data: {str(img_e)}")
+        
+        # If we got here, we couldn't extract an image
+        if st.session_state.get('debug_mode', False):
+            st.sidebar.write("Debug: No image found in the response")
+        return None, "Scene visualization unavailable"
+    
     except Exception as e:
-        error_msg = f"Error generating image: {str(e)}"
+        error_msg = f"Error in image generation: {str(e)}"
         if st.session_state.get('debug_mode', False):
             st.sidebar.write(f"Debug: {error_msg}")
         return None, error_msg
