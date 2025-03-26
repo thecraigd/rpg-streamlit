@@ -380,23 +380,31 @@ if "world_data" not in st.session_state:
     st.session_state.world_data = world_data
     start_game(world_data)
 
+# Initialize messages if not already in session
+if "messages" not in st.session_state:
+    st.session_state.messages = [
+        {"role": "system", "content": "You are a Dungeon Master for a text-based RPG. Use the provided world data to describe locations, NPCs, and events. Be creative and engaging. Keep responses concise, aiming for approximately 150 words or less."},
+        {"role": "assistant", "content": "Welcome to Aurora Nexus! I'll be your guide through this adventure. Type a command to begin."}
+    ]
 
 # Display chat messages
-for message in st.session_state.messages:
-    if message["role"] != "system": # Don't show system messages directly to the user
-        with st.chat_message(message["role"]):
-            st.write(message["content"])
-            
-            # Display current scene image after assistant messages
-            if message["role"] == "assistant" and 'current_image' in st.session_state and st.session_state.current_image is not None and st.session_state.get('enable_images', True):
-                try:
-                    st.image(st.session_state.current_image, 
-                             caption=st.session_state.get('current_image_caption', 'Scene illustration'), 
-                             use_column_width=True)
-                except Exception as e:
-                    st.error(f"Failed to display image: {str(e)}")
-                    st.sidebar.write(f"Debug: Image display error: {str(e)}")
-                    st.sidebar.write(f"Debug: Image type: {type(st.session_state.current_image)}")
+if "messages" in st.session_state:
+    for message in st.session_state.messages:
+        if message["role"] != "system": # Don't show system messages directly to the user
+            with st.chat_message(message["role"]):
+                st.write(message["content"])
+                
+                # Display current scene image after assistant messages
+                if message["role"] == "assistant" and 'current_image' in st.session_state and st.session_state.current_image is not None and st.session_state.get('enable_images', True):
+                    try:
+                        st.image(st.session_state.current_image, 
+                                 caption=st.session_state.get('current_image_caption', 'Scene illustration'), 
+                                 use_column_width=True)
+                    except Exception as e:
+                        st.error(f"Failed to display image: {str(e)}")
+                        if st.session_state.get('debug_mode', False):
+                            st.sidebar.write(f"Debug: Image display error: {str(e)}")
+                            st.sidebar.write(f"Debug: Image type: {type(st.session_state.current_image)}")
 
 # Chat input
 if prompt := st.chat_input("Enter your command here..."):
