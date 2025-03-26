@@ -3,6 +3,10 @@ import json
 import requests
 from openai import OpenAI 
 import google.generativeai as genai
+from google.generativeai import types
+from PIL import Image
+from io import BytesIO
+import base64
 
 # --- Load World Data ---
 @st.cache_resource  # Cache to load only once
@@ -44,6 +48,40 @@ def generate_response(messages, api_key, provider, temperature):
     except Exception as e:
         return f"Error: {str(e)}"
 
+# --- NEW: Image Generation Function ---
+def generate_image(text_prompt, api_key):
+    if not api_key:
+        return None, "API key not configured. Please set it in Streamlit secrets."
+    
+    try:
+        # Initialize the client
+        client = genai.GenerativeModel("gemini-2.0-flash-exp-image-generation")
+        
+        # Create the prompt for image generation
+        image_prompt = f"Generate a wide cinematic 5:2 aspect ratio illustration for a sci-fi RPG scene based on the following description: {text_prompt}"
+        
+        # Generate the image
+        response = client.generate_content(
+            contents=image_prompt,
+            generation_config=types.GenerateContentConfig(
+                response_modalities=['Text', 'Image']
+            )
+        )
+        
+        # Extract image data and text response
+        image_data = None
+        image_caption = None
+        
+        for part in response.candidates[0].content.parts:
+            if part.text is not None:
+                image_caption = part.text
+            elif part.inline_data is not None:
+                image_data = Image.open(BytesIO(base64.b64decode(part.inline_data.data)))
+        
+        return image_data, image_caption
+    
+    except Exception as e:
+        return None, f"Error generating image: {str(e)}"
 
 # --- Game Logic Functions ---
 def start_game(world_data):
@@ -79,11 +117,19 @@ def start_game(world_data):
 
     initial_response = generate_response(initial_messages, st.session_state.api_key, st.session_state.api_provider, st.session_state.temperature)
 
+    # Generate an image for the initial scene
+    if initial_response and not initial_response.startswith("API key not configured"):
+        image_data, image_caption = generate_image(initial_response, st.session_state.api_key)
+        st.session_state.current_image = image_data
+        st.session_state.current_image_caption = image_caption
+    else:
+        st.session_state.current_image = None
+        st.session_state.current_image_caption = None
+
     st.session_state.messages = [
         {"role": "system", "content": "You are a Dungeon Master for a text-based RPG. Use the provided world data to describe locations, NPCs, and events. Be creative and engaging. Keep responses concise, aiming for approximately 150 words or less."},
         {"role": "assistant", "content": initial_response if initial_response and not initial_response.startswith("API key not configured") else "Welcome to Aurora Nexus!"} # Display the AI's response as the first message, or default welcome if API key issue or no response
     ]
-
 
 def get_location_description(game_state):
     world_data = game_state.world_data
@@ -114,6 +160,12 @@ def handle_player_input(player_command, game_state):
         st.write(player_command)
     # Remove this line:  st.session_state.messages.append({"role": "user", "content": prompt_message}) # Provide context in a 'user' message for the DM
     ai_response = generate_response(st.session_state.messages + [{"role": "user", "content": prompt_message}], st.session_state.api_key, st.session_state.api_provider, st.session_state.temperature) # Pass prompt_message as context directly to generate_response
+    
+    # Generate image for the new scene
+    image_data, image_caption = generate_image(ai_response, st.session_state.api_key)
+    st.session_state.current_image = image_data
+    st.session_state.current_image_caption = image_caption
+    
     return ai_response
 
 def add_item_to_inventory(item_name, game_state):
@@ -188,6 +240,20 @@ st.markdown(
         color: white;
     }
 
+    /* Scene Image container */
+    .scene-image-container {
+        margin-top: 20px;
+        margin-bottom: 20px;
+        text-align: center;
+    }
+
+    /* Scene Image */
+    .scene-image {
+        border-radius: 10px;
+        border: 1px solid #444;
+        max-width: 100%;
+    }
+
     </style>
     """,
     unsafe_allow_html=True
@@ -213,8 +279,10 @@ Thanks for your patience while the first part of your adventure is created..."""
 with st.sidebar:
     st.header("Settings")
     api_provider = st.selectbox("API Provider", ["Google Gemini Flash 2.0 Experimental", "Deepseek Chat"])  
-    # API Key Input Removed from Sidebar
-
+    
+    # Image generation toggle
+    enable_images = st.checkbox("Enable Scene Images", value=True)
+    
     if st.button("Start New Game"):
         if 'world_data' in st.session_state:
             start_game(st.session_state.world_data)
@@ -222,6 +290,7 @@ with st.sidebar:
 
     st.session_state.api_provider = api_provider # Update session state with sidebar values
     st.session_state.temperature = temperature
+    st.session_state.enable_images = enable_images
 
 # --- API Key from Streamlit Secrets ---
 if api_provider == "Deepseek Chat":
@@ -241,6 +310,10 @@ for message in st.session_state.messages:
     if message["role"] != "system": # Don't show system messages directly to the user
         with st.chat_message(message["role"]):
             st.write(message["content"])
+            
+            # Display current scene image after assistant messages
+            if message["role"] == "assistant" and hasattr(st.session_state, 'current_image') and st.session_state.current_image and st.session_state.enable_images:
+                st.image(st.session_state.current_image, caption=st.session_state.current_image_caption, use_column_width=True)
 
 # Chat input
 if prompt := st.chat_input("Enter your command here..."):
@@ -248,6 +321,11 @@ if prompt := st.chat_input("Enter your command here..."):
     if ai_response:
         with st.chat_message("assistant"):
             st.write(ai_response)
+            
+            # Display the generated image
+            if hasattr(st.session_state, 'current_image') and st.session_state.current_image and st.session_state.enable_images:
+                st.image(st.session_state.current_image, caption=st.session_state.current_image_caption, use_column_width=True)
+            
             st.session_state.messages.append({"role": "assistant", "content": ai_response})
 
 
