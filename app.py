@@ -61,100 +61,82 @@ def generate_image(text_prompt, api_key):
         genai.configure(api_key=api_key)
         
         # Create a simpler, more direct prompt for image generation
-        image_prompt = f"Generate an image of: {text_prompt[:300]}"
+        image_prompt = f"Generate an image of a sci-fi scene showing: {text_prompt[:300]}"
         
         if st.session_state.get('debug_mode', False):
             st.sidebar.write(f"Debug: Attempting to generate image with prompt: '{image_prompt}'")
             st.sidebar.write("Debug: Using model: gemini-2.0-flash-exp-image-generation")
         
-        # Use the model specifically for image generation
+        # Use the model specifically for image generation - keep it simple
         model = genai.GenerativeModel("gemini-2.0-flash-exp-image-generation")
         
-        # Add safety settings to ensure the model knows to generate images
-        safety_settings = {
-            genai.types.HarmCategory.HARASSMENT: genai.types.HarmBlockThreshold.BLOCK_MEDIUM_AND_ABOVE,
-            genai.types.HarmCategory.HATE_SPEECH: genai.types.HarmBlockThreshold.BLOCK_MEDIUM_AND_ABOVE,
-            genai.types.HarmCategory.SEXUALLY_EXPLICIT: genai.types.HarmBlockThreshold.BLOCK_MEDIUM_AND_ABOVE,
-            genai.types.HarmCategory.DANGEROUS_CONTENT: genai.types.HarmBlockThreshold.BLOCK_MEDIUM_AND_ABOVE,
-        }
-        
-        # Try with a more explicit configuration
-        try:
-            # First attempt with generation_config explicitly set for image
-            generation_config = genai.types.GenerationConfig(
-                temperature=0.4,
-                top_p=1.0,
-                top_k=32,
-                candidate_count=1,
-            )
-            
-            response = model.generate_content(
-                image_prompt,
-                generation_config=generation_config,
-                safety_settings=safety_settings,
-            )
-            
-            if st.session_state.get('debug_mode', False):
-                st.sidebar.write("Debug: Response received from primary attempt")
-        except Exception as e:
-            if st.session_state.get('debug_mode', False):
-                st.sidebar.write(f"Debug: Primary attempt failed: {str(e)}. Trying fallback method.")
-            
-            # Fallback to simpler approach
-            response = model.generate_content(image_prompt)
-            
-            if st.session_state.get('debug_mode', False):
-                st.sidebar.write("Debug: Response received from fallback attempt")
-        
-        # Extract image data and text response
-        image_data = None
-        image_caption = None
+        # Try the simplest approach possible
+        response = model.generate_content(image_prompt)
         
         if st.session_state.get('debug_mode', False):
-            st.sidebar.write(f"Debug: Examining response structure...")
+            st.sidebar.write("Debug: Response received")
             st.sidebar.write(f"Debug: Response type: {type(response)}")
-            if hasattr(response, 'candidates') and len(response.candidates) > 0:
-                st.sidebar.write(f"Debug: Has candidates. Checking parts...")
-                if hasattr(response.candidates[0], 'content') and hasattr(response.candidates[0].content, 'parts'):
-                    parts = response.candidates[0].content.parts
-                    st.sidebar.write(f"Debug: Found {len(parts)} parts in response")
-                    for i, part in enumerate(parts):
-                        st.sidebar.write(f"Debug: Part {i} type: {type(part)}")
-                        st.sidebar.write(f"Debug: Part {i} attributes: {dir(part)[:10]}...")
+            
+            # Let's inspect what properties the response object has
+            if hasattr(response, 'text'):
+                st.sidebar.write(f"Debug: Response has 'text' attribute of length: {len(response.text)}")
+                st.sidebar.write(f"Debug: First 100 chars: {response.text[:100]}")
+                
+                # If the response is just text, we don't have an image
+                if len(response.text) > 100:
+                    return None, "Model returned text instead of an image"
+                
+            # Check if candidates exist
+            if hasattr(response, 'candidates'):
+                st.sidebar.write(f"Debug: Response has 'candidates' attribute with {len(response.candidates)} items")
+                
+                # Dive into the first candidate if available
+                if len(response.candidates) > 0:
+                    candidate = response.candidates[0]
+                    st.sidebar.write(f"Debug: Candidate has attributes: {dir(candidate)[:10]}...")
+                    
+                    # Check content
+                    if hasattr(candidate, 'content'):
+                        st.sidebar.write(f"Debug: Content has attributes: {dir(candidate.content)[:10]}...")
+                        
+                        # Check parts
+                        if hasattr(candidate.content, 'parts'):
+                            st.sidebar.write(f"Debug: Found {len(candidate.content.parts)} parts")
+                            
+                            # Examine each part
+                            for i, part in enumerate(candidate.content.parts):
+                                st.sidebar.write(f"Debug: Part {i} type: {type(part)}")
+                                st.sidebar.write(f"Debug: Part {i} has attributes: {dir(part)[:10]}...")
+                                
+                                # Check for text
+                                if hasattr(part, 'text') and part.text is not None:
+                                    st.sidebar.write(f"Debug: Part {i} has text of length: {len(part.text)}")
+                                    st.sidebar.write(f"Debug: First 50 chars: {part.text[:50]}...")
+                                
+                                # Check for inline_data
+                                if hasattr(part, 'inline_data') and part.inline_data is not None:
+                                    st.sidebar.write(f"Debug: Part {i} has inline_data")
+                                    
+                                    # Check mime type
+                                    if hasattr(part.inline_data, 'mime_type'):
+                                        st.sidebar.write(f"Debug: Inline data mime type: {part.inline_data.mime_type}")
+                                    
+                                    # Check data
+                                    if hasattr(part.inline_data, 'data'):
+                                        st.sidebar.write(f"Debug: Has data attribute of type: {type(part.inline_data.data)}")
+                                        
+                                        # Try to process it
+                                        try:
+                                            image_bytes = BytesIO(base64.b64decode(part.inline_data.data))
+                                            image = Image.open(image_bytes)
+                                            st.sidebar.write(f"Debug: Successfully parsed image: {image.format} {image.size}")
+                                            return image, "Generated scene image"
+                                        except Exception as img_e:
+                                            st.sidebar.write(f"Debug: Failed to process inline data as image: {str(img_e)}")
         
-        try:
-            for part in response.candidates[0].content.parts:
-                if hasattr(part, 'text') and part.text is not None:
-                    image_caption = part.text
-                    if st.session_state.get('debug_mode', False):
-                        st.sidebar.write(f"Debug: Found text part: {image_caption[:50]}...")
-                elif hasattr(part, 'inline_data') and part.inline_data is not None:
-                    if st.session_state.get('debug_mode', False):
-                        st.sidebar.write(f"Debug: Found inline_data with mime type: {part.inline_data.mime_type}")
-                    # Get the base64 data
-                    image_bytes = BytesIO(base64.b64decode(part.inline_data.data))
-                    image_data = Image.open(image_bytes)
-                    if st.session_state.get('debug_mode', False):
-                        st.sidebar.write("Debug: Successfully processed image data")
+        # If we got here, we couldn't find an image in the response
+        return None, "Could not extract image from response"
             
-            if image_data is None:
-                if st.session_state.get('debug_mode', False):
-                    st.sidebar.write("Debug: No image data found in response")
-                # If we have text but no image, it's likely the model returned text instructions
-                # rather than an actual image
-                if image_caption and len(image_caption) > 100:
-                    # This is likely a description rather than a caption
-                    if st.session_state.get('debug_mode', False):
-                        st.sidebar.write("Debug: Model returned text description instead of image")
-                    return None, "Model returned a text description instead of an image"
-            
-            return image_data, image_caption if image_caption else "Generated scene image"
-            
-        except (IndexError, AttributeError) as e:
-            if st.session_state.get('debug_mode', False):
-                st.sidebar.write(f"Debug: Error extracting data from response: {str(e)}")
-            return None, f"Error extracting image data: {str(e)}"
-    
     except Exception as e:
         error_msg = f"Error generating image: {str(e)}"
         if st.session_state.get('debug_mode', False):
