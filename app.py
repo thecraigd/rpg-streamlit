@@ -1,10 +1,10 @@
+# Import the necessary modules
 import streamlit as st
 import json
 import requests
 from openai import OpenAI 
 import google.generativeai as genai
-# Import GenerationConfig from the correct module
-from google.generativeai.types import GenerationConfig
+from google.generativeai import types as genai_types
 from PIL import Image
 from io import BytesIO
 import base64
@@ -59,20 +59,19 @@ def generate_image(text_prompt, api_key):
         # Make sure the API is properly configured with the key
         genai.configure(api_key=api_key)
         
-        # Initialize the client with the image generation model
-        model = genai.GenerativeModel("gemini-2.0-flash-exp-image-generation")
-        
         # Create the prompt for image generation - keep it concise for better results
         image_prompt = f"Generate a wide cinematic 5:2 aspect ratio illustration for a sci-fi RPG scene: {text_prompt[:300]}"
         
-        st.sidebar.write(f"Debug: Attempting to generate image with prompt length: {len(image_prompt)}")
+        if st.session_state.get('debug_mode', False):
+            st.sidebar.write(f"Debug: Attempting to generate image with prompt length: {len(image_prompt)}")
         
-        # Generate the image with explicit configuration
-        # Try with response_modalities as shown in the original example code
-        response = model.generate_content(
+        # Use the exact same pattern as the example code provided
+        client = genai.Client()
+        response = client.models.generate_content(
+            model="gemini-2.0-flash-exp-image-generation",
             contents=image_prompt,
-            generation_config=GenerationConfig(
-                response_modalities=['Image', 'Text']
+            config=genai.types.GenerateContentConfig(
+                response_modalities=['Text', 'Image']
             )
         )
         
@@ -81,29 +80,36 @@ def generate_image(text_prompt, api_key):
         image_caption = None
         
         try:
+            if st.session_state.get('debug_mode', False):
+                st.sidebar.write(f"Debug: Response received. Extracting data...")
+                
             for part in response.candidates[0].content.parts:
                 if hasattr(part, 'text') and part.text is not None:
                     image_caption = part.text
-                    st.sidebar.write("Debug: Got image caption")
+                    if st.session_state.get('debug_mode', False):
+                        st.sidebar.write("Debug: Got image caption")
                 elif hasattr(part, 'inline_data') and part.inline_data is not None:
                     # Get the base64 data
                     image_bytes = BytesIO(base64.b64decode(part.inline_data.data))
                     image_data = Image.open(image_bytes)
-                    st.sidebar.write("Debug: Successfully processed image data")
+                    if st.session_state.get('debug_mode', False):
+                        st.sidebar.write("Debug: Successfully processed image data")
             
-            if image_data is None:
+            if image_data is None and st.session_state.get('debug_mode', False):
                 st.sidebar.write("Debug: No image data found in response")
                 
             return image_data, image_caption if image_caption else "Generated scene image"
             
         except (IndexError, AttributeError) as e:
-            st.sidebar.write(f"Debug: Error extracting data from response: {str(e)}")
-            st.sidebar.write(f"Debug: Response structure: {dir(response)}")
+            if st.session_state.get('debug_mode', False):
+                st.sidebar.write(f"Debug: Error extracting data from response: {str(e)}")
+                st.sidebar.write(f"Debug: Response structure: {dir(response)}")
             return None, f"Error extracting image data: {str(e)}"
     
     except Exception as e:
         error_msg = f"Error generating image: {str(e)}"
-        st.sidebar.write(f"Debug: {error_msg}")
+        if st.session_state.get('debug_mode', False):
+            st.sidebar.write(f"Debug: {error_msg}")
         return None, error_msg
 
 # --- Game Logic Functions ---
