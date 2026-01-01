@@ -3,8 +3,12 @@ import streamlit as st
 import json
 import requests
 from openai import OpenAI 
-import google.generativeai as genai
-from google.generativeai import types as genai_types
+try:
+    from google import genai
+    from google.genai import types as genai_types
+except ImportError:
+    import google.generativeai as genai
+    from google.generativeai import types as genai_types
 from PIL import Image
 from io import BytesIO
 import base64
@@ -22,20 +26,66 @@ def load_world_data(json_file_path):
     return world_data
 
 # --- API Interaction Function (Adapt from your example) ---
+def _build_conversation(messages):
+    return "\n".join([f"{m['role']}: {m['content']}" for m in messages])
+
+def _extract_response_text(response):
+    if response is None:
+        return ""
+    text = getattr(response, "text", None)
+    if text:
+        return text
+    candidates = getattr(response, "candidates", None)
+    if candidates:
+        parts = getattr(candidates[0].content, "parts", [])
+        for part in parts:
+            part_text = getattr(part, "text", None)
+            if part_text:
+                return part_text
+    return ""
+
+def _make_genai_config(**kwargs):
+    config_class = getattr(genai_types, "GenerateContentConfig", None)
+    if config_class is None:
+        return None
+    return config_class(**kwargs)
+
+def _get_genai_client(api_key):
+    client_class = getattr(genai, "Client", None)
+    if client_class is None:
+        return None
+    return client_class(api_key=api_key)
+
+def _configure_genai(api_key):
+    configure = getattr(genai, "configure", None)
+    if configure is not None:
+        configure(api_key=api_key)
+
 def generate_response(messages, api_key, provider, temperature):
     if not api_key: # Check for API key here to avoid initial message
         return "API key not configured. Please set it in Streamlit secrets."
 
     try:
         if provider in ("Google Gemini Flash 3", "Google Gemini Flash 2.0 Experimental"):
-            genai.configure(api_key=api_key)
-            model = genai.GenerativeModel("gemini-3-flash-preview")
-
             # Convert message history to text format
-            conversation = "\n".join([f"{m['role']}: {m['content']}" for m in messages])
+            conversation = _build_conversation(messages)
+
+            client = _get_genai_client(api_key)
+            if client is not None:
+                config = _make_genai_config(temperature=temperature)
+                kwargs = {"config": config} if config is not None else {}
+                response = client.models.generate_content(
+                    model="gemini-3-flash-preview",
+                    contents=conversation,
+                    **kwargs,
+                )
+                return _extract_response_text(response)
+
+            _configure_genai(api_key)
+            model = genai.GenerativeModel("gemini-3-flash-preview")
             response = model.generate_content(conversation) # Gemini API does not have explicit temperature parameter here.
 
-            return response.text
+            return _extract_response_text(response)
 
         elif provider == "Deepseek Chat":
             client = OpenAI(api_key=api_key, base_url="https://api.deepseek.com/v1")
@@ -59,7 +109,7 @@ def generate_image(text_prompt, api_key):
     
     try:
         # Make sure the API is properly configured with the key
-        genai.configure(api_key=api_key)
+        _configure_genai(api_key)
         
         # Create an extremely generic, abstract prompt with no references to specific content
         # This is our last attempt to avoid policy violations
@@ -69,8 +119,18 @@ def generate_image(text_prompt, api_key):
             st.sidebar.write(f"Debug: Using ultra-generic prompt: '{image_prompt}'")
         
         # Use the simplest possible approach
-        model = genai.GenerativeModel("gemini-2.0-flash-exp-image-generation")
-        response = model.generate_content(image_prompt)
+        client = _get_genai_client(api_key)
+        if client is not None:
+            config = _make_genai_config(response_modalities=["Text", "Image"])
+            kwargs = {"config": config} if config is not None else {}
+            response = client.models.generate_content(
+                model="gemini-2.0-flash-exp-image-generation",
+                contents=image_prompt,
+                **kwargs,
+            )
+        else:
+            model = genai.GenerativeModel("gemini-2.0-flash-exp-image-generation")
+            response = model.generate_content(image_prompt)
         
         if st.session_state.get('debug_mode', False):
             st.sidebar.write("Debug: Response received")
