@@ -3,6 +3,7 @@ import streamlit as st
 import json
 import requests
 from openai import OpenAI 
+import os
 try:
     from google import genai
     from google.genai import types as genai_types
@@ -54,38 +55,64 @@ def _get_genai_client(api_key):
     client_class = getattr(genai, "Client", None)
     if client_class is None:
         return None
-    return client_class(api_key=api_key)
+    if api_key and not os.environ.get("GEMINI_API_KEY"):
+        os.environ["GEMINI_API_KEY"] = api_key
+    try:
+        return client_class(api_key=api_key)
+    except TypeError:
+        return client_class()
 
 def _configure_genai(api_key):
     configure = getattr(genai, "configure", None)
     if configure is not None:
         configure(api_key=api_key)
 
+def _load_gemini_api_key():
+    secrets = getattr(st, "secrets", {})
+    key = secrets.get("GEMINI_API_KEY") or secrets.get("GOOGLE_API_KEY")
+    if not key:
+        key = os.environ.get("GEMINI_API_KEY") or os.environ.get("GOOGLE_API_KEY")
+    if key and not os.environ.get("GEMINI_API_KEY"):
+        os.environ["GEMINI_API_KEY"] = key
+    return key
+
 def generate_response(messages, api_key, provider, temperature):
     if not api_key: # Check for API key here to avoid initial message
-        return "API key not configured. Please set it in Streamlit secrets."
+        return "API key not configured. Please set it in Streamlit secrets or environment variables."
 
     try:
         if provider in ("Google Gemini Flash 3", "Google Gemini Flash 2.0 Experimental"):
             # Convert message history to text format
             conversation = _build_conversation(messages)
+            model_names = ["gemini-3-flash-preview", "gemini-2.5-flash"]
 
             client = _get_genai_client(api_key)
             if client is not None:
                 config = _make_genai_config(temperature=temperature)
                 kwargs = {"config": config} if config is not None else {}
-                response = client.models.generate_content(
-                    model="gemini-3-flash-preview",
-                    contents=conversation,
-                    **kwargs,
-                )
-                return _extract_response_text(response)
+                last_error = None
+                for model_name in model_names:
+                    try:
+                        response = client.models.generate_content(
+                            model=model_name,
+                            contents=conversation,
+                            **kwargs,
+                        )
+                        return _extract_response_text(response)
+                    except Exception as e:
+                        last_error = e
+                raise last_error
 
             _configure_genai(api_key)
-            model = genai.GenerativeModel("gemini-3-flash-preview")
-            response = model.generate_content(conversation) # Gemini API does not have explicit temperature parameter here.
-
-            return _extract_response_text(response)
+            last_error = None
+            for model_name in model_names:
+                try:
+                    model = genai.GenerativeModel(model_name)
+                    response = model.generate_content(conversation) # Gemini API does not have explicit temperature parameter here.
+                    return _extract_response_text(response)
+                except Exception as e:
+                    last_error = e
+            raise last_error
 
         elif provider == "Deepseek Chat":
             client = OpenAI(api_key=api_key, base_url="https://api.deepseek.com/v1")
@@ -439,9 +466,11 @@ with st.sidebar:
 
 # --- API Key from Streamlit Secrets ---
 if api_provider == "Deepseek Chat":
-    st.session_state.api_key = st.secrets.get("DEEPSEEK_API_KEY") # Access API key from secrets
+    st.session_state.api_key = (
+        st.secrets.get("DEEPSEEK_API_KEY") or os.environ.get("DEEPSEEK_API_KEY")
+    ) # Access API key from secrets or environment
 else:
-    st.session_state.api_key = st.secrets.get("GOOGLE_API_KEY") # Access API key from secrets
+    st.session_state.api_key = _load_gemini_api_key() # Access API key from secrets or environment
 
 # Initialize game state if not already in session
 if "world_data" not in st.session_state:

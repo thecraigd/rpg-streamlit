@@ -68,7 +68,7 @@ Ready to embark on your adventure? Here's how to get Aurora Nexus running:
 
     ```toml
     DEEPSEEK_API_KEY = "YOUR_DEEPSEEK_API_KEY"
-    GOOGLE_API_KEY = "YOUR_GOOGLE_API_KEY"
+    GEMINI_API_KEY = "YOUR_GEMINI_API_KEY" # or GOOGLE_API_KEY
     ```
 
     If you're deploying to the Streamlit [Community Cloud](https://streamlit.io/cloud) you can add the contents of your .toml file to the Secrets for the web app, accessed via the app settings.
@@ -86,7 +86,7 @@ Ready to embark on your adventure? Here's how to get Aurora Nexus running:
 
 Once the app is running in your browser:
 
-1.  **API Provider Selection:** In the left sidebar, you can choose your preferred **API Provider** from the dropdown menu ("Google Gemini Flash 3" or "Deepseek Chat"). The application will use the corresponding API key you've configured in your Streamlit secrets.
+1.  **API Provider Selection:** In the left sidebar, you can choose your preferred **API Provider** from the dropdown menu ("Google Gemini Flash 3" or "Deepseek Chat"). The application will use the corresponding API key you've configured in your Streamlit secrets (or `GEMINI_API_KEY` in your environment for Gemini).
 2.  **Start a New Game:** Click the "Start New Game" button in the sidebar to begin your adventure in the Aurora Nexus!
 
 ## Playing the Game
