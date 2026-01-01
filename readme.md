@@ -81,7 +81,7 @@ Ready to embark on your adventure? Here's how to get Aurora Nexus running:
 
 Once the app is running in your browser:
 
-1.  **API Provider Selection:** In the left sidebar, you can choose your preferred **API Provider** from the dropdown menu ("Google Gemini Flash 2.0 Experimental" or "Deepseek Chat"). The application will use the corresponding API key you've configured in your Streamlit secrets.
+1.  **API Provider Selection:** In the left sidebar, you can choose your preferred **API Provider** from the dropdown menu ("Google Gemini Flash 3" or "Deepseek Chat"). The application will use the corresponding API key you've configured in your Streamlit secrets.
 2.  **Start a New Game:** Click the "Start New Game" button in the sidebar to begin your adventure in the Aurora Nexus!
 
 ## Playing the Game

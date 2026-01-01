@@ -27,7 +27,7 @@ def generate_response(messages, api_key, provider, temperature):
         return "API key not configured. Please set it in Streamlit secrets."
 
     try:
-        if provider == "Google Gemini Flash 2.0 Experimental":
+        if provider in ("Google Gemini Flash 3", "Google Gemini Flash 2.0 Experimental"):
             genai.configure(api_key=api_key)
             model = genai.GenerativeModel("gemini-3-flash-preview")
 
@@ -45,6 +45,7 @@ def generate_response(messages, api_key, provider, temperature):
                 temperature=temperature, # Use the temperature parameter
             )
             return response.choices[0].message.content
+        return f"Error: Unknown provider '{provider}'."
 
     except Exception as e:
         return f"Error: {str(e)}"
@@ -347,7 +348,7 @@ st.image(
 # st.title("Aurora Nexus RPG") # removed and replaced with header image
 st.markdown("""Welcome to the Aurora Nexus! A text-based AI RPG.
 
-The Aurora Nexus uses modern Large language Model technology to power a fully interactive RPG where you can explore a complete sci-fi environment. Each playthrough is unique, and with a wide array of unique space stations to explore and characters to meet, the possibilites are endless!
+The Aurora Nexus uses modern Large Language Model technology to power a fully interactive RPG where you can explore a complete sci-fi environment. Each playthrough is unique, and with a wide array of unique space stations to explore and characters to meet, the possibilites are endless!
 
 Thanks for your patience while the first part of your adventure is created...""")
 
