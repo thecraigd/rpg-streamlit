@@ -46,11 +46,6 @@ Ready to embark on your adventure? Here's how to get Aurora Nexus running:
     ```bash
     pip install google-genai
     ```
-    (If you're using the legacy SDK, you can instead install `google-generativeai`.)
-*   **Google Generative AI Python Library:** (Legacy) Install the Google Generative AI library:
-    ```bash
-    pip install google-generativeai
-    ```
 
 ### Installation and Running Locally
 

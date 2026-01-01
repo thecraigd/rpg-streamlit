@@ -1,6 +1,5 @@
 streamlit
 openai
 google-genai
-google-generativeai
 Pillow
 requests

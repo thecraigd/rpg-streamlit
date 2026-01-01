@@ -1,5 +1,5 @@
-import google.generativeai as genai
-from google.generativeai import types
+from google import genai
+from google.genai import types
 from PIL import Image
 from io import BytesIO
 import base64
@@ -22,6 +22,9 @@ for part in response.candidates[0].content.parts:
   if part.text is not None:
     print(part.text)
   elif part.inline_data is not None:
-    image = Image.open(BytesIO((part.inline_data.data)))
+    image_data = part.inline_data.data
+    if isinstance(image_data, str):
+      image_data = base64.b64decode(image_data)
+    image = Image.open(BytesIO(image_data))
     image.save('gemini-native-image.png')
     image.show()
