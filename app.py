@@ -29,7 +29,7 @@ def generate_response(messages, api_key, provider, temperature):
     try:
         if provider == "Google Gemini Flash 2.0 Experimental":
             genai.configure(api_key=api_key)
-            model = genai.GenerativeModel("gemini-2.0-flash-exp")
+            model = genai.GenerativeModel("gemini-3-flash-preview")
 
             # Convert message history to text format
             conversation = "\n".join([f"{m['role']}: {m['content']}" for m in messages])
@@ -354,7 +354,7 @@ Thanks for your patience while the first part of your adventure is created..."""
 # Sidebar for settings
 with st.sidebar:
     st.header("Settings")
-    api_provider = st.selectbox("API Provider", ["Google Gemini Flash 2.0 Experimental", "Deepseek Chat"])  
+    api_provider = st.selectbox("API Provider", ["Google Gemini Flash 3", "Deepseek Chat"])  
     
     # Image generation toggle with warning
     st.markdown("**Scene Visualization**")
